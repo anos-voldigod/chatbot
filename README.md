@@ -7,3 +7,9 @@
 - **Voice Input:** Record and transcribe voice input to interact with the chatbot.
 - **PDF Content Extraction:** Upload a PDF, extract text, and get a summary of the content.
 - **Chat History:** Keeps track of user and bot interactions.
+
+
+## Prerequisites
+
+- Python 3.8+
+- Google Generative AI API key
