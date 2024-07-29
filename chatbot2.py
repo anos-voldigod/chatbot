@@ -8,6 +8,8 @@ import fitz
 import wave
 import pyaudio
 import speech_recognition as sr
+import json
+import requests
 
 load_dotenv()
 
@@ -118,6 +120,44 @@ def record_audio(filename):
 
     return filename
 
+def chat_history_to_json(chat_history, filename='chat_history.json'):
+    json_output = []
+    
+    for entry in chat_history:
+        sender = entry[0]
+        message = entry[1]
+        tts_audio_link = entry[2] if len(entry) > 2 else None
+        
+        chat_entry = {
+            "sender": sender,
+            "message": message,
+        }
+        
+        if tts_audio_link:
+            chat_entry["tts_audio_link"] = tts_audio_link
+        
+        json_output.append(chat_entry)
+
+    json_data = json.dumps(json_output, indent=4)
+
+    with open(filename, 'w') as file:
+        file.write(json_data)
+
+    return filename
+
+def send_chat_history_to_server(filename):
+    with open(filename, 'r') as file:
+        json_data = file.read()
+    
+    try:
+        response = requests.post("http://localhost/chatbot/save_chat_history.php", data={"chat_history": json_data})
+        if response.status_code == 200:
+            st.success("Chat history successfully sent to the server!")
+        else:
+            st.error("Failed to send chat history to the server.")
+    except Exception as e:
+        st.error(f"Error occurred while sending chat history: {e}")
+
 st.header("Made In Heaven 🤖")
 
 if 'chat_history' not in st.session_state:
@@ -132,6 +172,8 @@ if submit and user_input:
         tts_audio_link = text_to_speech(response.text)
         st.session_state.chat_history.append(("You", user_input))
         st.session_state.chat_history.append(("Bot", response.text, tts_audio_link))
+        chat_history_to_json(st.session_state.chat_history)  # Save to JSON after each new message
+        send_chat_history_to_server('chat_history.json')  # Send JSON to server
     else:
         st.error("Failed to get a response from the model.")
 
@@ -144,6 +186,8 @@ if st.button("Record Voice"):
             tts_audio_link = text_to_speech(response.text)
             st.session_state.chat_history.append(("You (Voice)", voice_text))
             st.session_state.chat_history.append(("Bot", response.text, tts_audio_link))
+            chat_history_to_json(st.session_state.chat_history)  # Save to JSON after each new message
+            send_chat_history_to_server('chat_history.json')  # Send JSON to server
 
 st.subheader("Chat History")
 for sender, message, *tts_audio_link in st.session_state.chat_history:
@@ -158,6 +202,8 @@ for sender, message, *tts_audio_link in st.session_state.chat_history:
 
 if st.button("Clear Chat History"):
     st.session_state.chat_history = []
+    chat_history_to_json(st.session_state.chat_history)  # Save to JSON after clearing chat history
+    send_chat_history_to_server('chat_history.json')  # Send JSON to server
 
 st.sidebar.subheader("Usage Analytics")
 st.sidebar.write(f"Total Messages: {len(st.session_state.chat_history)}")
