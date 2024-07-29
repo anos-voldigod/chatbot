@@ -13,3 +13,4 @@ Chatbot using Gemini API which can be accessed by multiple users
 
 - Python 3.8+
 - Google Generative AI API key
+- php
