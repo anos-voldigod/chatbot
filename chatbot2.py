@@ -10,6 +10,7 @@ import pyaudio
 import speech_recognition as sr
 import json
 import requests
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 load_dotenv()
 
@@ -42,6 +43,9 @@ try:
 except Exception as e:
     st.error(f"Failed to initialize the generative model: {e}")
 
+bart_tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
+bart_model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn")
+
 def get_gemini_response(prompt):
     try:
         with st.spinner("Getting response..."):
@@ -69,7 +73,10 @@ def extract_text_from_pdf(uploaded_file):
     return text
 
 def summarize_text(text):
-    return "This is a mock summary of the provided text."
+    inputs = bart_tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=1024, truncation=True)
+    summary_ids = bart_model.generate(inputs, max_length=150, min_length=40, length_penalty=2.0, num_beams=4, early_stopping=True)
+    summary = bart_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
 
 def voice_to_text(audio_file_path):
     recognizer = sr.Recognizer()
@@ -172,8 +179,8 @@ if submit and user_input:
         tts_audio_link = text_to_speech(response.text)
         st.session_state.chat_history.append(("You", user_input))
         st.session_state.chat_history.append(("Bot", response.text, tts_audio_link))
-        chat_history_to_json(st.session_state.chat_history)  # Save to JSON after each new message
-        send_chat_history_to_server('chat_history.json')  # Send JSON to server
+        chat_history_to_json(st.session_state.chat_history) 
+        send_chat_history_to_server('chat_history.json') 
     else:
         st.error("Failed to get a response from the model.")
 
@@ -202,8 +209,8 @@ for sender, message, *tts_audio_link in st.session_state.chat_history:
 
 if st.button("Clear Chat History"):
     st.session_state.chat_history = []
-    chat_history_to_json(st.session_state.chat_history)  # Save to JSON after clearing chat history
-    send_chat_history_to_server('chat_history.json')  # Send JSON to server
+    chat_history_to_json(st.session_state.chat_history)  
+    send_chat_history_to_server('chat_history.json')  
 
 st.sidebar.subheader("Usage Analytics")
 st.sidebar.write(f"Total Messages: {len(st.session_state.chat_history)}")
